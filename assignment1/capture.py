@@ -41,8 +41,8 @@ while True:
     # cv2.circle(frame, max_loc, 10, (0, 255, 255), 2)
     
     # Mark the reddest spot
-    lower_red = np.array([0, 0, 128])
-    upper_red = np.array([64, 64, 255])
+    lower_red = np.array([0, 0, 100])
+    upper_red = np.array([100, 100, 255])
     mask = cv2.inRange(frame, lower_red, upper_red)
     masked_frame = cv2.bitwise_and(frame, frame, mask=mask)
     masked_gray = cv2.cvtColor(masked_frame, cv2.COLOR_BGR2GRAY)
