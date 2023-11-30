@@ -58,10 +58,6 @@ def pre_process(input_image, net):
 
 
 def post_process(input_image, outputs):
-    class_ids = []
-    confidences = []
-    boxes = []
-
     rows = outputs[0].shape[1]
 
     image_height, image_width = input_image.shape[:2]
@@ -69,28 +65,31 @@ def post_process(input_image, outputs):
     x_factor = image_width / INPUT_WIDTH
     y_factor = image_height / INPUT_HEIGHT
 
-    for r in range(rows):
-        row = outputs[0][0][r]
-        confidence = row[4]
+    boxes = outputs[0][0, :, :4]
+    boxes[:, 0] = (boxes[:, 0] - boxes[:, 2] / 2) * x_factor
+    boxes[:, 1] = (boxes[:, 1] - boxes[:, 3] / 2) * y_factor
+    boxes[:, 2:4] *= np.array([x_factor, y_factor])
 
-        if confidence >= CONFIDENCE_THRESHOLD:
-            classes_scores = row[5:]
-            class_id = np.argmax(classes_scores)
+    confidences = outputs[0][0, :, 4]
+    indices = (confidences >= CONFIDENCE_THRESHOLD).nonzero()[0]
 
-            if classes_scores[class_id] > SCORE_THRESHOLD:
-                confidences.append(confidence)
-                class_ids.append(class_id)
+    boxes = boxes[indices]
+    confidences = confidences[indices]
 
-                cx, cy, w, h = row[:4]
+    class_ids = np.argmax(outputs[0][0, indices, 5:], axis=1)
+    class_mask = (outputs[0][0, indices, 5 + class_ids] > SCORE_THRESHOLD)
+    indices = indices[class_mask]
 
-                left, top, width, height = map(int, ((cx - w/2) * x_factor, (cy - h/2) * y_factor, w * x_factor, h * y_factor))
-                boxes.append([left, top, width, height])
+    boxes = boxes[class_mask]
+    confidences = confidences[class_mask]
+    class_ids = class_ids[class_mask]
 
-    indices = cv2.dnn.NMSBoxes(boxes, confidences, CONFIDENCE_THRESHOLD, NMS_THRESHOLD)
+    indices = cv2.dnn.NMSBoxes(boxes.tolist(), confidences.tolist(), CONFIDENCE_THRESHOLD, NMS_THRESHOLD)
 
     for i in indices:
-        left, top, width, height = boxes[i]
-        cv2.rectangle(input_image, (left, top), (left + width, top + height), BLUE, 3*THICKNESS)
+        box = boxes[i].astype(int)
+        left, top, width, height = box
+        cv2.rectangle(input_image, (left, top), (left + width, top + height), BLUE, 3 * THICKNESS)
         label = "{}:{:.2f}".format(classes[class_ids[i]], confidences[i])
         draw_label(input_image, label, left, top)
 
@@ -98,13 +97,17 @@ def post_process(input_image, outputs):
 
 
 
+# Initialize the model and read classes file outside the loop
+modelWeights = "models/yolov5n.onnx"
+net = cv2.dnn.readNet(modelWeights)
+
 classesFile = "coco.names"
-classes = None
 with open(classesFile, 'rt') as f:
     classes = f.read().rstrip('\n').split('\n')
 
 while True:
-    
+    start_time = cv2.getTickCount()
+
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
         break
@@ -117,27 +120,19 @@ while True:
     if not ret:
         print("Error reading from the camera.")
         break
-    
-
-    # Give the weight files to the model and load the network using them.
-    modelWeights = "models/yolov5n.onnx"
-    net = cv2.dnn.readNet(modelWeights)
 
     # Process image.
     detections = pre_process(frame, net)
     img = post_process(frame.copy(), detections)
 
-    # Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the timings for each of the layers(in layersTimes)
+    # Put efficiency information.
     t, _ = net.getPerfProfile()
     label = 'Inference time: %.2f ms' % (t * 1000.0 / cv2.getTickFrequency())
     print(label)
-    # cv2.putText(img, label, (20, 40), FONT_FACE, FONT_SCALE, RED, THICKNESS, cv2.LINE_AA)
     
-    # calculate FPS and print it on frame
-    time_now = time.time()
-    fps = 1 / (time_now - time_last)
+    # Calculate FPS and print it on frame
+    fps = cv2.getTickFrequency() / (cv2.getTickCount() - start_time)
     cv2.putText(img, f'FPS: {round(fps, 2)}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-    time_last = time_now
     
     cv2.imshow('Output', img)
 
