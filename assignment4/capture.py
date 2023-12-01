@@ -98,7 +98,7 @@ def post_process(input_image, outputs):
 
 
 # Initialize the model and read classes file outside the loop
-modelWeights = "models/yolov5m.onnx"
+modelWeights = "models/yolov5n.onnx"
 net = cv2.dnn.readNet(modelWeights)
 
 classesFile = "coco.names"
