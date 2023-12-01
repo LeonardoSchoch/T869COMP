@@ -19,12 +19,11 @@ hough_threshold = 100
 hough_min_line_length = 250
 hough_max_line_gap = 500
 
-target_width = 720
-target_height = 480
+target_width = 480
+target_height = 720
 # --------------------------
 
 def remove_similar_lines(lines):
-    # Remove lines with a dot product too close to 1
     indices_to_remove = set()
     for i in range(len(lines)):
         for j in range(i + 1, len(lines)):
@@ -36,7 +35,6 @@ def remove_similar_lines(lines):
             if abs(dot_product) > 0.95 * np.linalg.norm(lines[i]) * np.linalg.norm(lines[j]):
                 indices_to_remove.add(i)
     return np.delete(lines, indices_to_remove)
-
 
 def points_2_line(points):
     x1 = np.append(points[:2], 1)
@@ -54,21 +52,21 @@ def find_corners(lines, shape_frame):
                 if x12[2] == 0:
                     continue
                 else:
-                    x12 = x12/x12[2]
+                    x12 = x12 / x12[2]
                     if abs(x12[0]) < shape_frame[1] and abs(x12[1]) < shape_frame[0]:
                         if list(x12[:2]) not in intersects:
                             intersects.append(list(x12[:2]))
     return np.array([[int(j) for j in i] for i in intersects])
 
 def order_corners(corners):
-    rect = np.zeros((4, 2))
-    s = corners.sum(axis=1)
-    rect[0] = corners[np.argmin(s)]
-    rect[2] = corners[np.argmax(s)]
+    order = np.zeros((4, 2))
+    sum = np.sum(corners, axis=1)
+    order[0] = corners[np.argmin(sum)]
+    order[2] = corners[np.argmax(sum)]
     diff = np.diff(corners, axis=1)
-    rect[1] = corners[np.argmin(diff)]
-    rect[3] = corners[np.argmax(diff)]
-    return rect
+    order[1] = corners[np.argmin(diff)]
+    order[3] = corners[np.argmax(diff)]
+    return order
 
 
 
@@ -104,8 +102,8 @@ while True:
         # selected_lines = remove_similar_lines(lines)
         selected_lines = lines[:4]
         for line in selected_lines:
-            x1, y1, x2, y2 = line
-            cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 255), 2)
+            x1, y1, x2, y2 = line 
+            cv2.line(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
     except Exception as e:
         print(f"{e}")
        
@@ -113,7 +111,7 @@ while True:
     try:
         corners = find_corners(selected_lines, frame.shape)
         for corner in corners:
-            cv2.circle(frame, corner, 5, (0, 0, 255), -1)
+            cv2.circle(frame, corner, 5, (255, 0, 0), -1)
     except Exception as e:
         print(f"{e}")
         
